@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>VOICE｜13ヶ国語 映像・音声ガイド装置 - 製品PR資料</title>
+<style>
+  :root{
+    --deep-blue:#0E4D7B;
+    --mid-blue:#1F6FA8;
+    --light-blue:#E6F0F8;
+    --gold:#C9A961;
+    --text:#1F2937;
+    --muted:#6B7280;
+    --divider:#D9E3EC;
+    --bg:#0a1b2a;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:"Meiryo","Yu Gothic","Hiragino Sans","ヒラギノ角ゴシック",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    overflow:hidden;
+    -webkit-font-smoothing:antialiased;
+  }
+  /* Stage = 16:9 area centered */
+  .stage{
+    position:fixed;
+    inset:0;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    padding:32px 16px 72px;
+  }
+  .slide-frame{
+    position:relative;
+    width:min(95vw, calc((100vh - 130px) * 16/9));
+    aspect-ratio:16/9;
+    background:#fff;
+    border-radius:8px;
+    box-shadow:0 18px 50px rgba(0,0,0,.45);
+    overflow:hidden;
+  }
+  /* All slides absolute-positioned for fade transitions */
+  .slide{
+    position:absolute;
+    inset:0;
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .35s ease;
+    background:#fff;
+    /* The whole slide is scaled via CSS variables — we author at 1280x720 */
+    container-type:inline-size;
+  }
+  .slide.active{opacity:1;pointer-events:auto;}
+  /* Inner uses % so it scales w/ slide-frame */
+  /* Eyebrow + title shared style */
+  .eyebrow{
+    position:absolute;
+    left:4.5%; top:6%;
+    color:var(--gold);
+    font-weight:700;
+    font-size:1.0vw;
+    letter-spacing:.08em;
+  }
+  .title{
+    position:absolute;
+    left:4.5%; top:10%;
+    font-size:2.6vw;
+    font-weight:800;
+    color:var(--deep-blue);
+    letter-spacing:.02em;
+  }
+  .accent-mark{
+    position:absolute;
+    left:4.5%; top:19%;
+    width:3.5%; height:.45vw;
+    background:var(--gold);
+    border-radius:2px;
+  }
+  .page-footer{
+    position:absolute;
+    left:4.5%; right:4.5%; bottom:3.5%;
+    display:flex; justify-content:space-between;
+    color:var(--muted);
+    font-size:.78vw;
+  }
+
+  /* === Navigation === */
+  .nav{
+    position:fixed;
+    left:0; right:0; bottom:18px;
+    display:flex; align-items:center; justify-content:center;
+    gap:14px;
+    z-index:50;
+  }
+  .nav button{
+    appearance:none; border:0; cursor:pointer;
+    background:rgba(255,255,255,.12);
+    color:#fff;
+    width:38px; height:38px;
+    border-radius:50%;
+    font-size:18px;
+    display:inline-flex; align-items:center; justify-content:center;
+    transition:background .15s ease, transform .15s ease;
+  }
+  .nav button:hover{background:rgba(255,255,255,.24);transform:translateY(-1px);}
+  .nav button:disabled{opacity:.35;cursor:not-allowed;transform:none;}
+  .counter{
+    color:#cbd5e1;
+    font-size:13px;
+    min-width:60px;
+    text-align:center;
+    letter-spacing:.04em;
+  }
+  .progress{
+    position:fixed;
+    left:0; top:0;
+    height:3px;
+    background:var(--gold);
+    transition:width .25s ease;
+    z-index:60;
+  }
+  .help{
+    position:fixed; right:14px; top:14px;
+    color:#94a3b8; font-size:11px; z-index:55;
+    background:rgba(0,0,0,.25); padding:6px 10px; border-radius:14px;
+    pointer-events:none;
+  }
+
+  /* ============ SLIDE 1 — TITLE ============ */
+  .s1{display:flex;}
+  .s1 .left{
+    flex: 0 0 42%;
+    background:var(--deep-blue);
+    color:#fff;
+    padding:5% 4%;
+    display:flex; flex-direction:column;
+    position:relative;
+  }
+  .s1 .left .tag{color:var(--gold);font-weight:700;font-size:.95vw;letter-spacing:.1em;margin-top:.5vw;}
+  .s1 .left .sub-jp{margin-top:.7vw;font-size:1.05vw;color:#fff;}
+  .s1 .left .brand{font-family:"Calibri","Segoe UI",Arial,sans-serif;font-size:6.4vw;font-weight:900;line-height:.95;margin-top:8%;letter-spacing:.02em;}
+  .s1 .left .kana{color:var(--gold);font-size:1.3vw;letter-spacing:.6vw;margin-top:.5vw;}
+  .s1 .left .divider{width:8%;height:.35vw;background:var(--gold);margin:2vw 0 1.2vw;}
+  .s1 .left .tagline{font-size:1.65vw;font-weight:700;line-height:1.45;}
+  .s1 .left .company{position:absolute;left:5%;bottom:6%;font-size:1vw;font-weight:700;}
+  .s1 .left .company small{display:block;color:var(--gold);font-size:.75vw;letter-spacing:.12em;margin-top:.3vw;}
+  .s1 .left .topbar{position:absolute;left:5%;top:5%;width:3.5%;height:.4vw;background:var(--gold);}
+
+  .s1 .right{flex:1;position:relative;background:#fff;}
+  .s1 .right .date{position:absolute;right:4%;top:6%;color:var(--muted);font-size:.85vw;}
+
+  .monitor{
+    position:absolute;
+    left:8%; top:18%;
+    width:78%; height:55%;
+    background:#122E47;
+    border:.5vw solid var(--gold);
+    border-radius:.4vw;
+  }
+  .monitor .screen{
+    position:absolute;inset:.4vw;
+    background:var(--light-blue);
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    border-radius:.2vw;
+  }
+  .person-icon{
+    width:6vw;height:7vw;
+    position:relative;
+    margin-bottom:.6vw;
+  }
+  .person-icon .head{
+    position:absolute; left:50%; top:0; transform:translateX(-50%);
+    width:3.4vw;height:3.4vw;background:var(--deep-blue);border-radius:50%;
+  }
+  .person-icon .eye{position:absolute;background:#fff;border-radius:50%;width:.55vw;height:.55vw;top:1.4vw;}
+  .person-icon .eye.l{left:calc(50% - 1.0vw);}
+  .person-icon .eye.r{left:calc(50% + .45vw);}
+  .person-icon .mouth{position:absolute;left:50%;transform:translateX(-50%);top:2.4vw;width:1.4vw;height:.25vw;background:#fff;border-radius:.1vw;}
+  .person-icon .body{
+    position:absolute;left:50%;transform:translateX(-50%);bottom:0;
+    width:5vw;height:3vw;background:var(--deep-blue);border-radius:1.2vw 1.2vw .4vw .4vw;
+  }
+  .monitor .caption{color:var(--deep-blue);font-weight:700;font-size:1.4vw;}
+  .monitor .caption-en{color:var(--muted);font-size:.85vw;margin-top:.3vw;}
+
+  .stand{position:absolute;left:50%;top:73%;transform:translateX(-50%);width:2vw;height:3vw;background:#9CA3AF;}
+  .stand-base{position:absolute;left:50%;top:78%;transform:translateX(-50%);width:8vw;height:.8vw;background:#6B7280;border-radius:.2vw;}
+
+  .tablet-chip{
+    position:absolute;left:8%;bottom:6%;
+    width:30%;height:14%;
+    background:var(--deep-blue);
+    border-radius:.6vw;
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-weight:700;font-size:1vw;letter-spacing:.1em;
+  }
+  .tablet-chip::before{
+    content:"";position:absolute;inset:.8vw;background:var(--light-blue);border-radius:.4vw;
+  }
+  .tablet-chip span{position:relative;color:var(--deep-blue);}
+
+  .lang-chip{
+    position:absolute;right:6%;bottom:6%;
+    width:30%;height:14%;
+    background:var(--gold);
+    border-radius:.6vw;
+    color:#fff;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
+  .lang-chip .num{font-family:"Calibri",sans-serif;font-size:2.6vw;font-weight:900;line-height:1;}
+  .lang-chip .sub{font-size:.95vw;font-weight:700;margin-top:.3vw;}
+
+  /* ============ Common content layout for slides 2-9 ============ */
+  .body{
+    position:absolute;
+    inset:23% 4.5% 9%;
+  }
+  .two-col{display:grid;grid-template-columns:1fr 1fr;gap:3%;height:100%;}
+
+  /* === Slide 2 === */
+  .s2-left h3{font-size:1.55vw;color:var(--deep-blue);font-weight:700;}
+  .s2-left p{font-size:1vw;line-height:1.7;color:var(--text);margin-top:1vw;}
+  .s2-left .pain-title{font-size:1.1vw;font-weight:700;color:var(--deep-blue);margin-top:2.2vw;}
+  .pains{margin-top:1vw;display:flex;flex-direction:column;gap:1vw;}
+  .pain{display:flex;gap:.9vw;align-items:flex-start;}
+  .pain .sq{width:1vw;height:1vw;background:var(--gold);flex:0 0 1vw;margin-top:.3vw;}
+  .pain .t{font-size:1vw;font-weight:700;color:var(--text);}
+  .pain .d{font-size:.85vw;color:var(--muted);margin-top:.2vw;}
+
+  .stat-card{
+    background:var(--light-blue);
+    border-radius:1vw;
+    padding:2.4vw 2vw;
+    display:flex;flex-direction:column;height:100%;
+  }
+  .stat-card .badge{width:3%;height:.35vw;background:var(--gold);margin-bottom:.6vw;}
+  .stat-card .label{font-size:1vw;font-weight:700;color:var(--gold);}
+  .stat-card .quote{font-size:1.9vw;font-weight:800;color:var(--deep-blue);line-height:1.4;margin-top:1vw;}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:1vw;margin-top:auto;padding-top:2vw;}
+  .stats .n{font-family:"Calibri",sans-serif;font-size:2.4vw;font-weight:900;color:var(--deep-blue);line-height:1;}
+  .stats .nl{font-size:.8vw;font-weight:700;color:var(--text);margin-top:.4vw;}
+  .stats .nd{font-size:.72vw;color:var(--muted);margin-top:.3vw;line-height:1.4;}
+
+  /* Slide 3 */
+  .s3-left h3{font-size:1.55vw;color:var(--deep-blue);font-weight:700;}
+  .s3-left p{font-size:1vw;line-height:1.7;margin-top:1vw;}
+  .s3-list{margin-top:2vw;display:flex;flex-direction:column;gap:.7vw;}
+  .s3-list .row{display:flex;gap:.8vw;align-items:center;}
+  .s3-list .dot{width:.7vw;height:.7vw;background:var(--gold);border-radius:50%;flex:0 0 .7vw;}
+  .s3-list .t{font-size:.95vw;}
+
+  .device-card{
+    background:var(--light-blue);
+    border-radius:1vw;
+    height:100%;
+    position:relative;display:flex;align-items:center;justify-content:center;
+  }
+  .device-card .mini-mon{
+    width:60%;aspect-ratio:16/9;
+    background:#122E47;
+    border:.35vw solid var(--gold);
+    border-radius:.3vw;
+    position:absolute;top:14%;left:50%;transform:translateX(-50%);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .device-card .mini-mon::after{
+    content:"";position:absolute;inset:.4vw;background:#fff;border-radius:.2vw;
+  }
+  .device-card .person-mini{
+    position:relative;z-index:1;width:25%;
+    display:flex;flex-direction:column;align-items:center;
+  }
+  .device-card .person-mini .h{width:1.6vw;height:1.6vw;background:var(--deep-blue);border-radius:50%;}
+  .device-card .person-mini .b{margin-top:.2vw;width:2.2vw;height:1.4vw;background:var(--deep-blue);border-radius:.8vw .8vw .3vw .3vw;}
+  .device-card .caption{position:absolute;z-index:2;color:var(--deep-blue);font-weight:700;font-size:.9vw;top:53%;}
+  .device-card .tab{
+    position:absolute;
+    bottom:14%;right:14%;
+    width:18%;aspect-ratio:3/4;
+    background:#2A3547;border-radius:.4vw;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .device-card .tab::after{content:"";position:absolute;inset:.4vw;background:var(--light-blue);border-radius:.2vw;}
+  .device-card .tab span{position:relative;z-index:1;color:var(--deep-blue);font-size:.7vw;font-weight:700;}
+  .device-card .label{position:absolute;bottom:5%;left:0;right:0;text-align:center;font-weight:700;color:var(--deep-blue);font-size:.95vw;}
+
+  /* Slide 4 — 3 cards */
+  .cards3{
+    position:absolute;
+    inset:21% 4% 11%;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:1.4vw;
+  }
+  .kcard{
+    background:#fff; border:1px solid var(--divider);
+    border-radius:1vw;
+    overflow:hidden;
+    position:relative;
+    display:flex;flex-direction:column;
+  }
+  .kcard .top{background:var(--deep-blue);color:var(--gold);font-family:"Calibri",sans-serif;font-weight:800;font-size:1.6vw;text-align:center;padding:.6vw 0;}
+  .kcard .icon-wrap{display:flex;align-items:center;justify-content:center;margin-top:1.6vw;}
+  .kcard .icon{width:5vw;height:5vw;background:var(--light-blue);border-radius:50%;display:flex;align-items:center;justify-content:center;color:var(--deep-blue);font-family:"Calibri",sans-serif;font-weight:900;font-size:2.4vw;}
+  .kcard .icon .tabsq{width:55%;height:55%;background:var(--deep-blue);border-radius:.4vw;display:flex;align-items:center;justify-content:center;}
+  .kcard .icon .tabsq::after{content:"";width:70%;height:70%;background:#fff;border-radius:.2vw;}
+  .kcard .icon .p2p{position:relative;width:60%;height:30%;}
+  .kcard .icon .p2p .c{position:absolute;top:0;width:36%;height:100%;background:var(--deep-blue);border-radius:50%;}
+  .kcard .icon .p2p .c.l{left:0;} .kcard .icon .p2p .c.r{right:0;}
+  .kcard .icon .p2p .ln{position:absolute;left:30%;right:30%;top:45%;height:18%;background:var(--gold);}
+  .kcard h4{text-align:center;margin-top:1vw;font-size:1.15vw;color:var(--deep-blue);}
+  .kcard .div{width:8%;height:.25vw;background:var(--gold);margin:.7vw auto;}
+  .kcard p{padding:0 1.2vw 1.4vw;text-align:center;font-size:.88vw;line-height:1.6;color:var(--text);}
+  .footer-tag{
+    position:absolute;left:4%;right:4%;bottom:7%;text-align:center;
+    color:var(--muted);font-style:italic;font-size:.95vw;
+  }
+
+  /* Slide 5 — languages */
+  .lang-lead{position:absolute;left:4.5%;top:21%;font-size:1vw;color:var(--text);}
+  .lang-grid{
+    position:absolute;left:4.5%;right:4.5%;top:28%;
+    display:grid;grid-template-columns:repeat(7,1fr);gap:1vw;
+  }
+  .lc{
+    background:var(--light-blue);border-radius:.7vw;
+    padding:.7vw .4vw;text-align:center;
+  }
+  .lc .m{font-size:.95vw;font-weight:700;color:var(--deep-blue);}
+  .lc .s{font-size:.72vw;color:var(--muted);margin-top:.2vw;}
+  .msg-row{
+    position:absolute;left:4.5%;right:4.5%;bottom:11%;
+    display:grid;grid-template-columns:1fr 1fr;gap:1.4vw;
+  }
+  .mbox{background:#fff;border:1px solid var(--divider);border-radius:.8vw;padding:1.1vw 1.3vw;}
+  .mbox .head{display:flex;align-items:center;gap:.7vw;}
+  .mbox .head .sq{width:.9vw;height:.9vw;background:var(--gold);}
+  .mbox .head h5{font-size:.95vw;color:var(--deep-blue);}
+  .mbox p{font-size:.78vw;line-height:1.6;color:var(--text);margin-top:.5vw;}
+
+  /* Slide 6 — controller */
+  .c-points{display:flex;flex-direction:column;gap:1.3vw;margin-top:1.2vw;}
+  .cp{display:flex;gap:1vw;align-items:flex-start;}
+  .cp .num{width:1.9vw;height:1.9vw;background:var(--deep-blue);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:"Calibri",sans-serif;font-weight:700;font-size:.95vw;flex:0 0 1.9vw;}
+  .cp .t{font-size:1vw;font-weight:700;}
+  .cp .d{font-size:.85vw;color:var(--muted);margin-top:.25vw;line-height:1.55;}
+
+  .tablet-card{
+    background:var(--light-blue);border-radius:1vw;height:100%;
+    display:flex;align-items:center;justify-content:center;flex-direction:column;
+    position:relative;
+  }
+  .tablet{
+    background:#2A3547;border-radius:.7vw;width:40%;aspect-ratio:3/4;
+    display:flex;align-items:center;justify-content:center;padding:.8vw;
+  }
+  .tablet .scr{background:#fff;width:100%;height:100%;border-radius:.4vw;padding:.6vw;display:grid;grid-template-columns:repeat(3,1fr);gap:.3vw;align-content:flex-start;}
+  .tablet .scr .k{background:var(--light-blue);text-align:center;padding:.35vw 0;border-radius:.25vw;font-weight:700;color:var(--deep-blue);font-size:.85vw;}
+  .tablet-card .lbl{margin-top:1.2vw;color:var(--deep-blue);font-weight:700;font-size:.95vw;}
+
+  /* Slide 7 — spec table */
+  .spec-title{font-size:1.05vw;color:var(--deep-blue);font-weight:700;}
+  .spec-table{margin-top:1vw;border-collapse:collapse;width:100%;}
+  .spec-table tr td{padding:.7vw .9vw;font-size:.84vw;}
+  .spec-table tr:nth-child(odd){background:var(--light-blue);}
+  .spec-table tr td:first-child{color:var(--deep-blue);font-weight:700;width:34%;}
+
+  .set-list{margin-top:1vw;display:flex;flex-direction:column;gap:.7vw;}
+  .set-list .row{display:flex;gap:.8vw;align-items:center;}
+  .set-list .d{width:.7vw;height:.7vw;background:var(--gold);border-radius:50%;flex:0 0 .7vw;}
+  .set-list .t{font-size:.88vw;}
+
+  /* Slide 8 — installation */
+  .install-cards{
+    position:absolute;inset:25% 4% 11%;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:1.4vw;
+  }
+  .icard{background:#fff;border:1px solid var(--divider);border-radius:1vw;padding:1.2vw;display:flex;flex-direction:column;align-items:center;}
+  .icard .ill{width:100%;height:45%;background:var(--light-blue);border-radius:.6vw;display:flex;align-items:center;justify-content:center;}
+  .icard .ill svg{max-width:70%;max-height:70%;}
+  .icard .sub{margin-top:1vw;font-size:.85vw;font-weight:700;color:var(--deep-blue);}
+  .icard h4{margin-top:.3vw;font-size:1.1vw;color:var(--text);}
+  .icard .div{width:12%;height:.25vw;background:var(--gold);margin:.6vw 0;}
+  .icard p{font-size:.8vw;color:var(--muted);text-align:center;line-height:1.55;}
+
+  /* Slide 9 — sales */
+  .targets{display:flex;flex-direction:column;gap:.9vw;margin-top:1vw;}
+  .tgt{background:var(--light-blue);border-radius:.6vw;padding:1vw 1.3vw;}
+  .tgt .t{font-size:1vw;font-weight:700;color:var(--deep-blue);}
+  .tgt .d{font-size:.82vw;color:var(--muted);margin-top:.25vw;}
+  .talks{display:flex;flex-direction:column;gap:.9vw;margin-top:1vw;}
+  .talk{padding-left:.9vw;border-left:.25vw solid var(--gold);}
+  .talk .t{font-size:.95vw;font-weight:700;color:var(--text);}
+  .talk .d{font-size:.82vw;color:var(--muted);margin-top:.25vw;line-height:1.55;}
+  .colhead{font-size:1.05vw;color:var(--deep-blue);font-weight:700;}
+
+  /* Slide 10 — closing */
+  .s10{background:var(--deep-blue);color:#fff;position:absolute;inset:0;}
+  .s10 .mark{position:absolute;left:4%;top:11%;width:.45vw;height:18%;background:var(--gold);}
+  .s10 .thanks{position:absolute;left:7%;top:12%;color:var(--gold);font-weight:700;font-size:.95vw;letter-spacing:.15em;}
+  .s10 .h{position:absolute;left:7%;top:17%;font-size:2.2vw;font-weight:800;line-height:1.4;}
+  .s10 .bar{position:absolute;left:7%;top:33%;width:7%;height:.35vw;background:var(--gold);}
+  .s10 .sub{position:absolute;left:7%;top:38%;font-size:1.05vw;line-height:1.65;max-width:55%;}
+  .s10 .contact{
+    position:absolute;left:7%;bottom:7%;width:55%;
+    background:#fff;color:var(--text);
+    border-radius:1vw;padding:1.6vw 1.8vw;
+  }
+  .s10 .contact .ttl{color:var(--gold);font-weight:700;font-size:.8vw;letter-spacing:.12em;}
+  .s10 .contact .co{font-size:1.4vw;font-weight:800;color:var(--deep-blue);margin-top:.5vw;}
+  .s10 .contact .co-en{font-size:.78vw;color:var(--muted);margin-top:.2vw;}
+  .s10 .contact .url{font-size:.78vw;color:var(--text);margin-top:1vw;}
+  .s10 .contact .url a{color:var(--mid-blue);}
+  .s10 .contact .disc{font-size:.7vw;color:var(--muted);margin-top:.4vw;}
+  .s10 .product-side{position:absolute;right:6%;bottom:14%;width:25%;text-align:center;}
+  .s10 .product-side .lab{color:var(--gold);font-weight:700;font-size:.8vw;letter-spacing:.12em;}
+  .s10 .product-side .v{font-family:"Calibri",sans-serif;font-size:4.5vw;font-weight:900;line-height:1;margin-top:.4vw;}
+  .s10 .product-side .underline{width:35%;height:.3vw;background:var(--gold);margin:1vw auto 0;}
+  .s10 .product-side .tag{font-size:.78vw;margin-top:.7vw;}
+
+  /* Mobile fallback */
+  @media (max-aspect-ratio: 4/3) {
+    .slide-frame{width:96vw;}
+  }
+</style>
+</head>
+<body>
+
+<div class="progress" id="progress"></div>
+<div class="help">← / → でスライド送り</div>
+
+<div class="stage">
+  <div class="slide-frame">
+
+    <!-- ========== SLIDE 1 ========== -->
+    <section class="slide s1 active">
+      <div class="left">
+        <div class="topbar"></div>
+        <div style="height:2vw;"></div>
+        <div class="tag">PRODUCT PR | FOR SALES PARTNERS</div>
+        <div class="sub-jp">代理店様向け 製品紹介資料</div>
+        <div class="brand">VOICE</div>
+        <div class="kana">ボ イ ス</div>
+        <div class="divider"></div>
+        <div class="tagline">13ヶ国語実装<br>映像・音声ガイド装置</div>
+        <div class="company">株式会社 大林製作所<small>OBAYASHI MFG. CO., LTD.</small></div>
+      </div>
+      <div class="right">
+        <div class="date">2026年5月版</div>
+        <div class="monitor">
+          <div class="screen">
+            <div class="person-icon">
+              <div class="head"></div>
+              <div class="eye l"></div><div class="eye r"></div>
+              <div class="mouth"></div>
+              <div class="body"></div>
+            </div>
+            <div class="caption">息を止めてください</div>
+            <div class="caption-en">Please hold your breath</div>
+          </div>
+        </div>
+        <div class="stand"></div><div class="stand-base"></div>
+        <div class="tablet-chip"><span>TABLET</span></div>
+        <div class="lang-chip"><div class="num">13</div><div class="sub">ヶ国語＋ひらがな</div></div>
+      </div>
+    </section>
+
+    <!-- ========== SLIDE 2 ========== -->
+    <section class="slide">
+      <div class="eyebrow">01  BACKGROUND</div>
+      <div class="title">なぜ今、多言語ガイドが必要か</div>
+      <div class="accent-mark"></div>
+      <div class="body">
+        <div class="two-col">
+          <div class="s2-left">
+            <h3>訪日外国人・在留外国人の増加</h3>
+            <p>医療機関・健診施設において、英語や中国語を含む多言語<br>での案内ニーズは年々高まっています。レントゲン撮影<br>現場では、息止めや姿勢保持の指示が患者さんへ正確に<br>伝わらないと、再撮影や被ばく増加のリスクとなります。</p>
+            <div class="pain-title">現場の課題</div>
+            <div class="pains">
+              <div class="pain"><div class="sq"></div><div><div class="t">再撮影リスク</div><div class="d">言語の壁で指示が伝わらず、撮影をやり直しに</div></div></div>
+              <div class="pain"><div class="sq"></div><div><div class="t">スタッフ負担</div><div class="d">技師がジェスチャーや筆談で都度対応</div></div></div>
+              <div class="pain"><div class="sq"></div><div><div class="t">患者の不安</div><div class="d">言葉が分からないと検査への不安が増大</div></div></div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="badge"></div>
+            <div class="label">VOICEがもたらす価値</div>
+            <div class="quote">言葉の壁を、<br>音声とイラストで超える。</div>
+            <div class="stats">
+              <div><div class="n">13</div><div class="nl">ヶ国語＋ひらがな</div><div class="nd">プリインストール</div></div>
+              <div><div class="n">7</div><div class="nl">インチ画面</div><div class="nd">金色ベゼル / 一体型スピーカー</div></div>
+              <div><div class="n">P2P</div><div class="nl">独自ネットワーク</div><div class="nd">既存無線LANに影響なし</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="page-footer"><div>VOICE 13ヶ国語 映像・音声ガイド装置 | 株式会社 大林製作所</div><div>2 / 10</div></div>
+    </section>
+
+    <!-- ========== SLIDE 3 ========== -->
+    <section class="slide">
+      <div class="eyebrow">02  PRODUCT OVERVIEW</div>
+      <div class="title">VOICE — 13ヶ国語 映像・音声ガイド装置</div>
+      <div class="accent-mark"></div>
+      <div class="body">
+        <div class="two-col">
+          <div class="s3-left">
+            <h3>レントゲン撮影を、誰にでも分かりやすく。</h3>
+            <p>VOICEは、X線装置のレディ信号に連動して、患者さんへ<br>音声・文字・イラストで撮影指示を行う撮影補助機器です。<br>声優録音による聞きやすい音声と、直感的なイラストで、<br>言語の異なる患者さんにも安心の案内を実現します。</p>
+            <div class="s3-list">
+              <div class="row"><div class="dot"></div><div class="t">撮影部位ごとに最適な開始／終了メッセージ</div></div>
+              <div class="row"><div class="dot"></div><div class="t">声優収録によるクリアな音声＋イラスト案内</div></div>
+              <div class="row"><div class="dot"></div><div class="t">タブレット型コントローラー（取り外し自在）</div></div>
+              <div class="row"><div class="dot"></div><div class="t">画面180°回転・テーマ色変更などカスタム機能</div></div>
+              <div class="row"><div class="dot"></div><div class="t">動画再生機能（USB経由・MP4 / WebM対応）</div></div>
+            </div>
+          </div>
+          <div class="device-card">
+            <div class="mini-mon"></div>
+            <div class="person-mini" style="position:absolute;top:22%;left:50%;transform:translateX(-50%);z-index:2;">
+              <div class="h"></div><div class="b"></div>
+            </div>
+            <div class="caption" style="left:0;right:0;text-align:center;">息を止めてください</div>
+            <div class="tab"><span>Tablet</span></div>
+            <div class="label">VOICE 本体 + 設定タブレット</div>
+          </div>
+        </div>
+      </div>
+      <div class="page-footer"><div>VOICE 13ヶ国語 映像・音声ガイド装置 | 株式会社 大林製作所</div><div>3 / 10</div></div>
+    </section>
+
+    <!-- ========== SLIDE 4 ========== -->
+    <section class="slide">
+      <div class="eyebrow">03  KEY DIFFERENTIATORS</div>
+      <div class="title">VOICEだけの3つの強み</div>
+      <div class="accent-mark"></div>
+      <div class="cards3">
+        <div class="kcard">
+          <div class="top">01</div>
+          <div class="icon-wrap"><div class="icon">13</div></div>
+          <h4>13ヶ国語＋ひらがな</h4>
+          <div class="div" style="margin:0 auto;"></div>
+          <p>日・英・中（北京/広東）・韓・葡・露・独・仏・タガログ・西・タイ・ヒンディーをプリインストール。追加開発不要で即運用可能。</p>
+        </div>
+        <div class="kcard">
+          <div class="top">02</div>
+          <div class="icon-wrap"><div class="icon"><div class="tabsq"></div></div></div>
+          <h4>タブレット型コントローラー</h4>
+          <div class="div" style="margin:0 auto;"></div>
+          <p>ホルダーから取り外し可能。患者さんに直接渡して指差し操作も可能。本体側でも同様に操作できます。</p>
+        </div>
+        <div class="kcard">
+          <div class="top">03</div>
+          <div class="icon-wrap"><div class="icon"><div class="p2p"><div class="c l"></div><div class="ln"></div><div class="c r"></div></div></div></div>
+          <h4>Peer to Peer 接続</h4>
+          <div class="div" style="margin:0 auto;"></div>
+          <p>独自アクセスポイントで本体とタブレットを直接接続。病院の既存無線LANに負荷・干渉を与えません。</p>
+        </div>
+      </div>
+      <div class="footer-tag">病院・クリニックの「言葉の壁」と「IT制約」を同時に解決する設計。</div>
+      <div class="page-footer"><div>VOICE 13ヶ国語 映像・音声ガイド装置 | 株式会社 大林製作所</div><div>4 / 10</div></div>
+    </section>
+
+    <!-- ========== SLIDE 5 ========== -->
+    <section class="slide">
+      <div class="eyebrow">04  LANGUAGES</div>
+      <div class="title">13ヶ国語＋ひらがな プリインストール</div>
+      <div class="accent-mark"></div>
+      <div class="lang-lead">追加課金・追加開発なしで、納品時から多言語ガイドを開始できます。</div>
+      <div class="lang-grid">
+        <div class="lc"><div class="m">日本語</div><div class="s">Japanese</div></div>
+        <div class="lc"><div class="m">にほんご</div><div class="s">Hiragana</div></div>
+        <div class="lc"><div class="m">英　語</div><div class="s">English</div></div>
+        <div class="lc"><div class="m">北京語</div><div class="s">Mandarin</div></div>
+        <div class="lc"><div class="m">広東語</div><div class="s">Cantonese</div></div>
+        <div class="lc"><div class="m">韓国語</div><div class="s">Korean</div></div>
+        <div class="lc"><div class="m">ポルトガル語</div><div class="s">Portuguese</div></div>
+        <div class="lc"><div class="m">ロシア語</div><div class="s">Russian</div></div>
+        <div class="lc"><div class="m">ドイツ語</div><div class="s">German</div></div>
+        <div class="lc"><div class="m">フランス語</div><div class="s">French</div></div>
+        <div class="lc"><div class="m">タガログ語</div><div class="s">Tagalog</div></div>
+        <div class="lc"><div class="m">スペイン語</div><div class="s">Spanish</div></div>
+        <div class="lc"><div class="m">タイ　語</div><div class="s">Thai</div></div>
+        <div class="lc"><div class="m">ヒンディー語</div><div class="s">Hindi</div></div>
+      </div>
+      <div class="msg-row">
+        <div class="mbox"><div class="head"><div class="sq"></div><h5>START MESSAGE（開始メッセージ）</h5></div><p>「大きく息を吸って、止めてください」 /「息を吸って、吐いて、止めてください」<br>「軽く息を吸って、止めてください」 /「そのまま動かないでください」</p></div>
+        <div class="mbox"><div class="head"><div class="sq"></div><h5>END MESSAGE（終了メッセージ）</h5></div><p>「楽にしてください」 /「そのままお待ちください」 /（発声なし）<br>声優録音音声＋イラストで、撮影部位ごとに最適な案内が可能。</p></div>
+      </div>
+      <div class="page-footer"><div>VOICE 13ヶ国語 映像・音声ガイド装置 | 株式会社 大林製作所</div><div>5 / 10</div></div>
+    </section>
+
+    <!-- ========== SLIDE 6 ========== -->
+    <section class="slide">
+      <div class="eyebrow">05  CONTROLLER</div>
+      <div class="title">タブレット型コントローラー</div>
+      <div class="accent-mark"></div>
+      <div class="body">
+        <div class="two-col">
+          <div>
+            <h3 style="font-size:1.55vw;color:var(--deep-blue);font-weight:700;">言語が分からない患者さんも、安心。</h3>
+            <div class="c-points">
+              <div class="cp"><div class="num">1</div><div><div class="t">ホルダーから取り外し自在</div><div class="d">患者さんのそばに持っていき、ご自身に指差し操作してもらえます。</div></div></div>
+              <div class="cp"><div class="num">2</div><div><div class="t">本体側でも操作可能</div><div class="d">技師の手元、本体タッチパネル、タブレットいずれからも設定変更が可能。</div></div></div>
+              <div class="cp"><div class="num">3</div><div><div class="t">撮影部位の切替もスムーズ</div><div class="d">撮影位置を変えながら、手元のタブレットでメッセージを変更。</div></div></div>
+              <div class="cp"><div class="num">4</div><div><div class="t">Peer to Peer 接続で安心</div><div class="d">独自アクセスポイント経由のWi-Fi接続。既存LANに負荷を与えません。</div></div></div>
+            </div>
+          </div>
+          <div class="tablet-card">
+            <div class="tablet"><div class="scr">
+              <div class="k">日</div><div class="k">あ</div><div class="k">英</div>
+              <div class="k">中</div><div class="k">廣</div><div class="k">韓</div>
+              <div class="k">葡</div><div class="k">露</div><div class="k">独</div>
+              <div class="k">仏</div><div class="k">タ</div><div class="k">西</div>
+              <div class="k">泰</div><div class="k">ヒ</div><div class="k" style="visibility:hidden;"></div>
+            </div></div>
+            <div class="lbl">設定用タブレット (Android)</div>
+          </div>
+        </div>
+      </div>
+      <div class="page-footer"><div>VOICE 13ヶ国語 映像・音声ガイド装置 | 株式会社 大林製作所</div><div>6 / 10</div></div>
+    </section>
+
+    <!-- ========== SLIDE 7 ========== -->
+    <section class="slide">
+      <div class="eyebrow">06  SPECIFICATIONS</div>
+      <div class="title">本体仕様・標準構成</div>
+      <div class="accent-mark"></div>
+      <div class="body">
+        <div class="two-col">
+          <div>
+            <div class="spec-title">VOICE 本体仕様</div>
+            <table class="spec-table">
+              <tr><td>画面サイズ</td><td>7インチ DMT 1280×720 60Hz 16:9</td></tr>
+              <tr><td>外形寸法</td><td>幅205mm × 奥行68.3mm × 高さ155mm</td></tr>
+              <tr><td>重量</td><td>1.0kg（本体部分のみ）</td></tr>
+              <tr><td>電源</td><td>AC100V 50/60Hz 0.1KVA</td></tr>
+              <tr><td>無線仕様</td><td>2.4GHz（Peer to Peer）</td></tr>
+              <tr><td>インターフェース</td><td>LANポート / USB / Ready信号ケーブル</td></tr>
+              <tr><td>音声出力</td><td>本体一体型スピーカー（消音〜3段階）</td></tr>
+              <tr><td>動画再生</td><td>USB経由 MP4 / WebM 対応（推奨16:9 1280×720 / 30MB以下）</td></tr>
+            </table>
+          </div>
+          <div>
+            <div class="spec-title">標準構成 / Standard Set</div>
+            <div class="set-list">
+              <div class="row"><div class="d"></div><div class="t">VOICE 本体ユニット ×1</div></div>
+              <div class="row"><div class="d"></div><div class="t">VOICE 本体用 AC アダプタ（DC側 1.5m） ×1</div></div>
+              <div class="row"><div class="d"></div><div class="t">AC アダプタ用電源ケーブル（5m） ×1</div></div>
+              <div class="row"><div class="d"></div><div class="t">Ready 信号ケーブル（15m） ×1</div></div>
+              <div class="row"><div class="d"></div><div class="t">設定タブレット ×1</div></div>
+              <div class="row"><div class="d"></div><div class="t">タブレット用 AC アダプタ ×1</div></div>
+              <div class="row"><div class="d"></div><div class="t">タブレット用ホルダ ×1 / 壁掛けホルダ ×1</div></div>
+              <div class="row"><div class="d"></div><div class="t">壁面固定用コンクリート壁ネジ ×2 / 木ネジ ×2</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="page-footer"><div>VOICE 13ヶ国語 映像・音声ガイド装置 | 株式会社 大林製作所</div><div>7 / 10</div></div>
+    </section>
+
+    <!-- ========== SLIDE 8 ========== -->
+    <section class="slide">
+      <div class="eyebrow">07  INSTALLATION</div>
+      <div class="title">設置オプション</div>
+      <div class="accent-mark"></div>
+      <div style="position:absolute;left:4.5%;top:21%;font-size:1vw;">現場のレイアウトに合わせて、3つの設置方法から選択可能。</div>
+      <div class="install-cards">
+        <div class="icard">
+          <div class="ill">
+            <svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg">
+              <rect x="10" y="10" width="80" height="6" fill="#0E4D7B"/>
+              <rect x="10" y="10" width="6" height="40" fill="#0E4D7B"/>
+              <rect x="84" y="10" width="6" height="40" fill="#0E4D7B"/>
+              <rect x="28" y="26" width="44" height="20" fill="#C9A961"/>
+              <rect x="31" y="29" width="38" height="14" fill="#fff"/>
+            </svg>
+          </div>
+          <div class="sub">EVO用アーム（コの字）</div>
+          <h4>ROCKET EVOLUTION 取付</h4>
+          <div class="div"></div>
+          <p>コの字型アームでスタンド ROCKET EVOLUTION に取付。安定性が高く、撮影室内での柔軟な配置に最適。</p>
+        </div>
+        <div class="icard">
+          <div class="ill">
+            <svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg">
+              <rect x="46" y="6" width="8" height="34" fill="#0E4D7B"/>
+              <rect x="28" y="34" width="44" height="18" fill="#C9A961"/>
+              <rect x="31" y="37" width="38" height="12" fill="#fff"/>
+            </svg>
+          </div>
+          <div class="sub">EVO用アーム（シンプル）</div>
+          <h4>ROCKET EVOLUTION 取付</h4>
+          <div class="div"></div>
+          <p>シンプル構造でコストを抑えつつ、ROCKET EVOLUTION への取付に対応。</p>
+        </div>
+        <div class="icard">
+          <div class="ill">
+            <svg viewBox="0 0 100 60" xmlns="http://www.w3.org/2000/svg">
+              <rect x="6" y="6" width="88" height="48" fill="#CBD5E1"/>
+              <rect x="9" y="9" width="22" height="12" fill="#fff"/>
+              <rect x="34" y="9" width="22" height="12" fill="#fff"/>
+              <rect x="59" y="9" width="22" height="12" fill="#fff"/>
+              <rect x="18" y="24" width="22" height="12" fill="#fff"/>
+              <rect x="43" y="24" width="22" height="12" fill="#fff"/>
+              <rect x="9" y="39" width="22" height="12" fill="#fff"/>
+              <rect x="34" y="39" width="22" height="12" fill="#fff"/>
+              <rect x="59" y="39" width="22" height="12" fill="#fff"/>
+              <rect x="32" y="22" width="36" height="16" fill="#C9A961"/>
+              <rect x="35" y="25" width="30" height="10" fill="#fff"/>
+            </svg>
+          </div>
+          <div class="sub">壁面取付ベース</div>
+          <h4>壁面固定タイプ</h4>
+          <div class="div"></div>
+          <p>コンクリート壁・ボード壁双方に対応。専用ベースとネジ類が付属し、設置場所を選びません。</p>
+        </div>
+      </div>
+      <div class="page-footer"><div>VOICE 13ヶ国語 映像・音声ガイド装置 | 株式会社 大林製作所</div><div>8 / 10</div></div>
+    </section>
+
+    <!-- ========== SLIDE 9 ========== -->
+    <section class="slide">
+      <div class="eyebrow">08  SALES APPROACH</div>
+      <div class="title">ターゲット顧客と訴求ポイント</div>
+      <div class="accent-mark"></div>
+      <div class="body">
+        <div class="two-col">
+          <div>
+            <div class="colhead">想定ターゲット</div>
+            <div class="targets">
+              <div class="tgt"><div class="t">総合病院・大学病院</div><div class="d">外国人患者の来院が多い都市部・観光地</div></div>
+              <div class="tgt"><div class="t">健診センター・人間ドック</div><div class="d">短時間で多数撮影、再撮影リスク低減のニーズ</div></div>
+              <div class="tgt"><div class="t">クリニック（整形・内科）</div><div class="d">技師1名運用、撮影補助で業務効率化</div></div>
+              <div class="tgt"><div class="t">空港・港湾検疫</div><div class="d">短期滞在外国人への対応が必須</div></div>
+            </div>
+          </div>
+          <div>
+            <div class="colhead">セールストーク・訴求ポイント</div>
+            <div class="talks">
+              <div class="talk"><div class="t">「再撮影ゼロ」を提案</div><div class="d">息止め指示の正確な伝達で、被ばく低減＋検査効率UP。</div></div>
+              <div class="talk"><div class="t">「IT部門に嫌われない」をアピール</div><div class="d">Peer to Peer 接続のため、既存無線LAN環境への影響なし。</div></div>
+              <div class="talk"><div class="t">「インバウンド対応の即戦力」</div><div class="d">13ヶ国語＋ひらがな対応、納品翌日から運用可能。</div></div>
+              <div class="talk"><div class="t">「導入後カスタムも可能」</div><div class="d">テーマ色変更・画面回転・音声待機時間調整など、現場に合わせて。</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="page-footer"><div>VOICE 13ヶ国語 映像・音声ガイド装置 | 株式会社 大林製作所</div><div>9 / 10</div></div>
+    </section>
+
+    <!-- ========== SLIDE 10 ========== -->
+    <section class="slide">
+      <div class="s10">
+        <div class="mark"></div>
+        <div class="thanks">THANK YOU</div>
+        <div class="h">VOICE で、診療現場の<br>"言葉の壁" を超える。</div>
+        <div class="bar"></div>
+        <div class="sub">13ヶ国語実装 / タブレット型コントローラー / P2P接続<br>VOICE は、医療現場で本当に必要とされる「やさしい案内」を実現します。</div>
+        <div class="contact">
+          <div class="ttl">お問い合わせ / CONTACT</div>
+          <div class="co">株式会社 大林製作所</div>
+          <div class="co-en">OBAYASHI MFG. CO., LTD.</div>
+          <div class="url">製品サイト：<a href="https://obayashi-mfg.co.jp/VOICE/VOICE.html" target="_blank" rel="noopener">https://obayashi-mfg.co.jp/VOICE/VOICE.html</a></div>
+          <div class="disc">本資料は代理店様向けの製品紹介資料です。仕様・外観は改良により予告なく変更する場合があります。</div>
+        </div>
+        <div class="product-side">
+          <div class="lab">PRODUCT</div>
+          <div class="v">VOICE</div>
+          <div class="underline"></div>
+          <div class="tag">13ヶ国語 映像・音声ガイド装置</div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div class="nav">
+  <button id="prev" aria-label="前のスライド">‹</button>
+  <div class="counter" id="counter">1 / 10</div>
+  <button id="next" aria-label="次のスライド">›</button>
+</div>
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  const total = slides.length;
+  let idx = 0;
+  const counter = document.getElementById('counter');
+  const prog = document.getElementById('progress');
+  const prevBtn = document.getElementById('prev');
+  const nextBtn = document.getElementById('next');
+
+  function render(){
+    slides.forEach((s,i)=>s.classList.toggle('active', i===idx));
+    counter.textContent = (idx+1) + ' / ' + total;
+    prog.style.width = ((idx+1)/total*100) + '%';
+    prevBtn.disabled = idx === 0;
+    nextBtn.disabled = idx === total-1;
+    history.replaceState(null,'','#'+(idx+1));
+  }
+  function next(){ if(idx<total-1){idx++;render();} }
+  function prev(){ if(idx>0){idx--;render();} }
+
+  prevBtn.addEventListener('click', prev);
+  nextBtn.addEventListener('click', next);
+  document.addEventListener('keydown', (e)=>{
+    if(e.key==='ArrowRight' || e.key===' '|| e.key==='PageDown') {e.preventDefault();next();}
+    else if(e.key==='ArrowLeft' || e.key==='PageUp'){e.preventDefault();prev();}
+    else if(e.key==='Home'){idx=0;render();}
+    else if(e.key==='End'){idx=total-1;render();}
+  });
+  // Click on stage advances
+  document.querySelector('.stage').addEventListener('click', (e)=>{
+    if(e.target.closest('.nav') || e.target.closest('a')) return;
+    next();
+  });
+  // Deep-link via hash
+  const h = parseInt(location.hash.replace('#',''),10);
+  if(h && h>=1 && h<=total){ idx = h-1; }
+  render();
+</script>
+</body>
+</html>

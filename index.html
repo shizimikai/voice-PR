@@ -95,6 +95,7 @@
     display:flex; align-items:center; justify-content:center;
     gap:14px;
     z-index:50;
+    flex-wrap:wrap;
   }
   .nav button{
     appearance:none; border:0; cursor:pointer;
@@ -115,6 +116,51 @@
     text-align:center;
     letter-spacing:.04em;
   }
+  /* Audio controls */
+  .audio-group{
+    display:flex;align-items:center;gap:10px;
+    background:rgba(255,255,255,.08);
+    border-radius:22px;
+    padding:4px 12px 4px 4px;
+  }
+  #audio-toggle{
+    background:var(--gold);
+    color:#fff;
+    width:34px;height:34px;
+    font-size:14px;
+  }
+  #audio-toggle:hover{background:#d8b675;}
+  #audio-toggle.playing{background:#fff;color:var(--deep-blue);}
+  .audio-time{
+    color:#cbd5e1;
+    font-size:11px;
+    font-variant-numeric:tabular-nums;
+    min-width:78px;
+    text-align:center;
+    letter-spacing:.02em;
+  }
+  .audio-track{
+    width:160px;height:4px;
+    background:rgba(255,255,255,.18);
+    border-radius:2px;overflow:hidden;
+    cursor:pointer;
+  }
+  .audio-track .fill{
+    height:100%;width:0%;
+    background:var(--gold);
+    transition:width .1s linear;
+  }
+  .auto-toggle{
+    color:#cbd5e1; font-size:12px;
+    display:inline-flex;align-items:center;gap:5px;
+    cursor:pointer; user-select:none;
+  }
+  .auto-toggle input{accent-color:var(--gold);}
+  .audio-error{
+    color:#f59e0b; font-size:11px;
+    display:none;
+  }
+  .audio-error.visible{display:inline;}
   .progress{
     position:fixed;
     left:0; top:0;
@@ -428,7 +474,7 @@
 <body>
 
 <div class="progress" id="progress"></div>
-<div class="help">← / → でスライド送り</div>
+<div class="help">← / → スライド送り　|　Space 再生/停止</div>
 
 <div class="stage">
   <div class="slide-frame">
@@ -777,9 +823,18 @@
   </div>
 </div>
 
+<audio id="player" preload="metadata"></audio>
+
 <div class="nav">
   <button id="prev" aria-label="前のスライド">‹</button>
   <div class="counter" id="counter">1 / 10</div>
+  <div class="audio-group">
+    <button id="audio-toggle" aria-label="再生/一時停止" title="再生 / 一時停止">▶</button>
+    <div class="audio-track" id="audio-track"><div class="fill" id="audio-fill"></div></div>
+    <div class="audio-time" id="audio-time">0:00 / 0:00</div>
+    <label class="auto-toggle" title="再生終了後、自動で次のスライドへ"><input type="checkbox" id="auto-play"> 自動送り</label>
+    <span class="audio-error" id="audio-error">音声未登録</span>
+  </div>
   <button id="next" aria-label="次のスライド">›</button>
 </div>
 
@@ -792,6 +847,83 @@
   const prevBtn = document.getElementById('prev');
   const nextBtn = document.getElementById('next');
 
+  // === Audio ===
+  const player = document.getElementById('player');
+  const audioToggle = document.getElementById('audio-toggle');
+  const audioFill = document.getElementById('audio-fill');
+  const audioTrack = document.getElementById('audio-track');
+  const audioTime = document.getElementById('audio-time');
+  const audioError = document.getElementById('audio-error');
+  const autoPlayCb = document.getElementById('auto-play');
+
+  function audioSrc(i){
+    // Slide 1 (idx 0) -> sound/00-PR_sound.wav, Slide 10 (idx 9) -> 09-PR_sound.wav
+    return `sound/${String(i).padStart(2,'0')}-PR_sound.wav`;
+  }
+  function fmt(t){
+    if(!isFinite(t)) return '0:00';
+    const m = Math.floor(t/60);
+    const s = Math.floor(t%60);
+    return m + ':' + (s<10?'0':'') + s;
+  }
+  function setPlayingUI(playing){
+    audioToggle.textContent = playing ? '❚❚' : '▶';
+    audioToggle.classList.toggle('playing', playing);
+  }
+  function loadAudioForSlide(i){
+    player.pause();
+    setPlayingUI(false);
+    audioFill.style.width = '0%';
+    audioTime.textContent = '0:00 / 0:00';
+    audioError.classList.remove('visible');
+    player.src = audioSrc(i);
+    player.load();
+  }
+  function playCurrent(){
+    const p = player.play();
+    if(p && p.catch){
+      p.catch(()=>{
+        // autoplay blocked or file missing
+      });
+    }
+  }
+  audioToggle.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    if(player.paused){ playCurrent(); } else { player.pause(); }
+  });
+  player.addEventListener('play', ()=>setPlayingUI(true));
+  player.addEventListener('pause', ()=>setPlayingUI(false));
+  player.addEventListener('ended', ()=>{
+    setPlayingUI(false);
+    if(autoPlayCb.checked && idx < total-1){
+      idx++;
+      render();
+      // start playing next slide audio after small delay
+      setTimeout(()=>playCurrent(), 250);
+    }
+  });
+  player.addEventListener('timeupdate', ()=>{
+    if(player.duration){
+      audioFill.style.width = (player.currentTime/player.duration*100) + '%';
+      audioTime.textContent = fmt(player.currentTime) + ' / ' + fmt(player.duration);
+    }
+  });
+  player.addEventListener('loadedmetadata', ()=>{
+    audioTime.textContent = '0:00 / ' + fmt(player.duration);
+    audioError.classList.remove('visible');
+  });
+  player.addEventListener('error', ()=>{
+    audioError.classList.add('visible');
+    audioTime.textContent = '0:00 / 0:00';
+  });
+  audioTrack.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    if(!player.duration) return;
+    const r = audioTrack.getBoundingClientRect();
+    const ratio = (e.clientX - r.left) / r.width;
+    player.currentTime = Math.max(0, Math.min(player.duration, ratio*player.duration));
+  });
+
   function render(){
     slides.forEach((s,i)=>s.classList.toggle('active', i===idx));
     counter.textContent = (idx+1) + ' / ' + total;
@@ -799,19 +931,22 @@
     prevBtn.disabled = idx === 0;
     nextBtn.disabled = idx === total-1;
     history.replaceState(null,'','#'+(idx+1));
+    loadAudioForSlide(idx);
   }
   function next(){ if(idx<total-1){idx++;render();} }
   function prev(){ if(idx>0){idx--;render();} }
 
-  prevBtn.addEventListener('click', prev);
-  nextBtn.addEventListener('click', next);
+  prevBtn.addEventListener('click', (e)=>{e.stopPropagation();prev();});
+  nextBtn.addEventListener('click', (e)=>{e.stopPropagation();next();});
   document.addEventListener('keydown', (e)=>{
-    if(e.key==='ArrowRight' || e.key===' '|| e.key==='PageDown') {e.preventDefault();next();}
+    if(e.target.tagName === 'INPUT') return;
+    if(e.key==='ArrowRight' || e.key==='PageDown') {e.preventDefault();next();}
     else if(e.key==='ArrowLeft' || e.key==='PageUp'){e.preventDefault();prev();}
     else if(e.key==='Home'){idx=0;render();}
     else if(e.key==='End'){idx=total-1;render();}
+    else if(e.key===' '){e.preventDefault(); player.paused ? playCurrent() : player.pause();}
   });
-  // Click on stage advances
+  // Click on stage (slide area) advances; ignore nav/audio/links
   document.querySelector('.stage').addEventListener('click', (e)=>{
     if(e.target.closest('.nav') || e.target.closest('a')) return;
     next();
